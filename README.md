@@ -908,6 +908,214 @@ Exemple cron:
 
 **R:** Oui, les nouvelles métadonnées écrasent ou complètent les existantes selon les clés.
 
-### Q8: Le programme fonctionne-t-il sur Raspberry Pi?
+Q8: Le programme fonctionne-t-il sur Raspberry Pi?
+R: Oui mais les performances seront limitées. Recommandé: Raspberry Pi 4 avec 4GB+ RAM. Utiliser -t 2 pour limiter les threads.
+Q9: Comment gérer les sous-titres et pistes audio?
+R: Le mode copy préserve TOUTES les pistes (vidéo, audio, sous-titres). Rien n'est perdu.
+Q10: Est-ce que ça fonctionne avec les fichiers 4K/8K?
+R: Oui! Le mode copy fonctionne quelle que soit la résolution. Même les fichiers 8K sont traités en quelques secondes.
 
-**R:** Oui mais les
+📊 ANNEXE: ARCHITECTURE DÉTAILLÉE
+Flux de données complet
+INPUT
+  │
+  ├─> [Validation fichier]
+  │     • Existence
+  │     • Format supporté
+  │     • Taille
+  │
+  ├─> [Préparation métadonnées]
+  │     • Parsing key=value
+  │     • Échappement caractères
+  │     • Validation UTF-8
+  │
+  ├─> [ThreadPoolExecutor]
+  │     • Création queue de tâches
+  │     • Distribution threads
+  │     • Load balancing
+  │
+  ├─> [FFmpeg Processing] (x N threads)
+  │     │
+  │     ├─> Ouverture stream input
+  │     │     • Lecture headers
+  │     │     • Détection codecs
+  │     │
+  │     ├─> Injection métadonnées
+  │     │     • Modification container
+  │     │     • Préservation streams
+  │     │
+  │     ├─> Copie streams
+  │     │     • Zero-copy mode
+  │     │     • Pas de décodage/encodage
+  │     │     • Multi-threading FFmpeg
+  │     │
+  │     └─> Écriture output
+  │           • Buffer optimisé
+  │           • Flush périodique
+  │
+  ├─> [Vérification]
+  │     • Taille fichier
+  │     • Intégrité
+  │     • Métadonnées présentes
+  │
+  └─> [Statistiques]
+        • Temps de traitement
+        • Taux de succès
+        • Débit MB/s
+Optimisations FFmpeg internes
+1. SIMD (Single Instruction Multiple Data)
+FFmpeg utilise des instructions vectorielles modernes:
+SSE/SSE2 (x86):
+c// Exemple interne FFmpeg (simplifié)
+// Traitement de 16 pixels simultanément
+__m128i pixels = _mm_load_si128((__m128i*)src);
+__m128i result = _mm_add_epi8(pixels, offset);
+_mm_store_si128((__m128i*)dst, result);
+AVX/AVX2:
+
+Traite 32 bytes simultanément
+Double performance vs SSE
+
+NEON (ARM):
+
+Optimisations pour architectures ARM
+Utilisé sur mobile et Raspberry Pi
+
+2. Multi-threading natif
+c// Pseudo-code structure FFmpeg
+void encode_video(Video *input) {
+    // Découpage en slices
+    int num_threads = get_cpu_count();
+    Slice slices[num_threads];
+    
+    // Traitement parallèle
+    #pragma omp parallel for
+    for (int i = 0; i < num_threads; i++) {
+        process_slice(&slices[i]);
+    }
+    
+    // Fusion résultats
+    merge_slices(slices, output);
+}
+3. Hardware acceleration
+CUDA (NVIDIA):
+c// Décodage GPU
+AVCodecContext *ctx = avcodec_alloc_context3(codec);
+ctx->hw_device_ctx = av_hwdevice_ctx_create(AV_HWDEVICE_TYPE_CUDA);
+VAAPI (Linux/Intel):
+c// Accélération Intel Quick Sync
+av_hwdevice_ctx_create(AV_HWDEVICE_TYPE_VAAPI);
+Performances théoriques vs réelles
+OpérationThéoriqueRéelFacteurs limitantsLecture disque3500 MB/s (NVMe)2800 MB/sOverhead systèmeCopie stream∞ (pas de processing)1500 MB/sI/O disqueMulti-threadingLinear (N cores)0.85NSynchronisationNetwork transfer1000 Mb/s (Gigabit)800 Mb/sProtocol overhead
+
+🚀 GUIDE DE CONTRIBUTION
+Structure du code
+python# PRINCIPALES SECTIONS DU CODE
+
+1. Configuration globale (lignes 1-50)
+   - Constants
+   - Logging setup
+
+2. Classes de données (lignes 51-100)
+   - VideoProcessingResult
+   - ProcessingStats
+
+3. Classe principale (lignes 101-500)
+   - OptimizedVideoMetadataProcessor
+   - Méthodes de traitement
+
+4. Mode interactif (lignes 501-700)
+   - Interface utilisateur
+   - Collecte inputs
+
+5. Mode CLI (lignes 701-900)
+   - ArgumentParser
+   - Traitement arguments
+
+6. Point d'entrée (lignes 901+)
+   - main()
+   - Gestion erreurs
+Ajouter de nouvelles fonctionnalités
+Exemple: Ajouter support de templates de métadonnées
+python# Dans la classe OptimizedVideoMetadataProcessor
+
+def load_metadata_template(self, template_file: str) -> Dict[str, str]:
+    """
+    Charge un template de métadonnées depuis JSON
+    
+    Args:
+        template_file: Chemin vers fichier JSON
+        
+    Returns:
+        Dictionnaire de métadonnées
+    """
+    with open(template_file, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+# Utilisation CLI
+# python video_metadata.py -i video.mp4 --template metadata_template.json
+Tests
+python# test_video_metadata.py
+import unittest
+from video_metadata import OptimizedVideoMetadataProcessor
+
+class TestVideoMetadata(unittest.TestCase):
+    def setUp(self):
+        self.processor = OptimizedVideoMetadataProcessor()
+    
+    def test_metadata_injection(self):
+        """Test injection de métadonnées basique"""
+        metadata = {"title": "Test", "artist": "TestUser"}
+        result = self.processor._process_single_video(
+            "test_input.mp4",
+            "test_output.mp4",
+            metadata
+        )
+        self.assertTrue(result.success)
+    
+    def test_read_metadata(self):
+        """Test lecture de métadonnées"""
+        metadata = self.processor.read_metadata("test_video.mp4")
+        self.assertIsInstance(metadata, dict)
+
+if __name__ == '__main__':
+    unittest.main()
+
+📞 SUPPORT ET RESSOURCES
+Documentation FFmpeg
+
+Site officiel: https://ffmpeg.org/
+Documentation API: https://ffmpeg.org/doxygen/trunk/
+Wiki: https://trac.ffmpeg.org/
+
+Communauté
+
+Forum FFmpeg: https://www.ffmpeg.org/contact.html
+Stack Overflow: Tag ffmpeg
+
+Outils recommandés
+
+MediaInfo: Analyse détaillée de fichiers vidéo
+FFprobe: Outil d'inspection (inclus avec FFmpeg)
+HandBrake: Interface graphique pour FFmpeg
+
+
+📝 CHANGELOG
+Version 2.0.0 (2026-01-22)
+
+✨ Architecture multi-threading optimisée
+⚡ Support traitement par lots
+📊 Statistiques détaillées
+🔧 Mode CLI complet
+📝 Logging production-ready
+🐛 Gestion erreurs améliorée
+📚 Documentation complète
+
+
+📄 LICENCE
+Ce programme utilise FFmpeg qui est sous licence LGPL/GPL.
+Référez-vous à https://ffmpeg.org/legal.html pour détails.
+
+FIN DU MANUEL
+Pour toute question ou suggestion d'amélioration, consultez les logs
+ou activez le mode verbeux (-v) pour debugging détaillé.
