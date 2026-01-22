@@ -917,6 +917,7 @@ R: Oui! Le mode copy fonctionne quelle que soit la résolution. Même les fichie
 
 📊 ANNEXE: ARCHITECTURE DÉTAILLÉE
 Flux de données complet
+
 INPUT
   │
   ├─> [Validation fichier]
@@ -962,19 +963,22 @@ INPUT
         • Temps de traitement
         • Taux de succès
         • Débit MB/s
+
 Optimisations FFmpeg internes
 1. SIMD (Single Instruction Multiple Data)
 FFmpeg utilise des instructions vectorielles modernes:
 SSE/SSE2 (x86):
-c// Exemple interne FFmpeg (simplifié)
+
+// Exemple interne FFmpeg (simplifié)
 // Traitement de 16 pixels simultanément
 __m128i pixels = _mm_load_si128((__m128i*)src);
 __m128i result = _mm_add_epi8(pixels, offset);
 _mm_store_si128((__m128i*)dst, result);
+
 AVX/AVX2:
 
-Traite 32 bytes simultanément
-Double performance vs SSE
+       Traite 32 bytes simultanément
+       Double performance vs SSE
 
 NEON (ARM):
 
@@ -982,7 +986,8 @@ Optimisations pour architectures ARM
 Utilisé sur mobile et Raspberry Pi
 
 2. Multi-threading natif
-c// Pseudo-code structure FFmpeg
+
+// Pseudo-code structure FFmpeg
 void encode_video(Video *input) {
     // Découpage en slices
     int num_threads = get_cpu_count();
@@ -997,20 +1002,31 @@ void encode_video(Video *input) {
     // Fusion résultats
     merge_slices(slices, output);
 }
+
 3. Hardware acceleration
+
 CUDA (NVIDIA):
-c// Décodage GPU
+
+// Décodage GPU
 AVCodecContext *ctx = avcodec_alloc_context3(codec);
 ctx->hw_device_ctx = av_hwdevice_ctx_create(AV_HWDEVICE_TYPE_CUDA);
+
 VAAPI (Linux/Intel):
-c// Accélération Intel Quick Sync
+
+// Accélération Intel Quick Sync
 av_hwdevice_ctx_create(AV_HWDEVICE_TYPE_VAAPI);
+
 Performances théoriques vs réelles
+
+
 OpérationThéoriqueRéelFacteurs limitantsLecture disque3500 MB/s (NVMe)2800 MB/sOverhead systèmeCopie stream∞ (pas de processing)1500 MB/sI/O disqueMulti-threadingLinear (N cores)0.85NSynchronisationNetwork transfer1000 Mb/s (Gigabit)800 Mb/sProtocol overhead
+
+
 
 🚀 GUIDE DE CONTRIBUTION
 Structure du code
-python# PRINCIPALES SECTIONS DU CODE
+
+# PRINCIPALES SECTIONS DU CODE
 
 1. Configuration globale (lignes 1-50)
    - Constants
@@ -1035,9 +1051,11 @@ python# PRINCIPALES SECTIONS DU CODE
 6. Point d'entrée (lignes 901+)
    - main()
    - Gestion erreurs
+
 Ajouter de nouvelles fonctionnalités
 Exemple: Ajouter support de templates de métadonnées
-python# Dans la classe OptimizedVideoMetadataProcessor
+
+# Dans la classe OptimizedVideoMetadataProcessor
 
 def load_metadata_template(self, template_file: str) -> Dict[str, str]:
     """
@@ -1054,8 +1072,10 @@ def load_metadata_template(self, template_file: str) -> Dict[str, str]:
 
 # Utilisation CLI
 # python video_metadata.py -i video.mp4 --template metadata_template.json
+
 Tests
-python# test_video_metadata.py
+
+# test_video_metadata.py
 import unittest
 from video_metadata import OptimizedVideoMetadataProcessor
 
